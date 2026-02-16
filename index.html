@@ -2,7 +2,7 @@
 <html>
 <head>
   <title>Sunshine Hotel Voice Agent</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <style>
     body {
@@ -21,6 +21,11 @@
       margin: auto;
       border-radius: 12px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+      text-align: left;
+    }
+
+    .top {
+      text-align: center;
     }
 
     input {
@@ -42,126 +47,409 @@
       margin: 8px;
     }
 
-    .mic {
-      background: #e53e3e;
-    }
+    .mic { background: #e53e3e; }
 
     #result {
-      margin-top: 20px;
+      margin-top: 16px;
       font-size: 18px;
       color: #333;
       min-height: 40px;
+      line-height: 1.35;
     }
 
     .note {
-      margin-top: 20px;
+      margin-top: 14px;
       font-size: 14px;
       color: #666;
+      text-align: center;
+    }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .status {
+      font-size: 13px;
+      color: #666;
+      text-align: center;
+      margin-top: 10px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #edf2f7;
+      color: #2d3748;
+      margin-left: 6px;
+      font-size: 12px;
     }
   </style>
 </head>
 
 <body>
+  <div class="card">
+    <div class="top">
+      <h1>🎤 Sunshine Hotel Voice Agent</h1>
+      <p>Type OR speak your hotel question</p>
 
-<div class="card">
-  <h1>🎤 Sunshine Hotel Voice Agent</h1>
-  <p>Type OR speak your hotel question</p>
+      <input id="question" placeholder="When is check-in time?" />
 
-  <input id="question" placeholder="When is check-in time?" />
+      <div class="row">
+        <button onclick="askFromText()">Ask</button>
+        <button id="startStopBtn" class="mic" onclick="toggleConversation()">▶ Start</button>
+      </div>
 
-  <br>
-  <button onclick="ask()">Ask</button>
-  <button class="mic" onclick="startVoice()">🎤 Speak</button>
+      <div class="note" style="margin-top: 8px;">
+        <label>
+          <input type="checkbox" id="tts" checked />
+          Speak the answer out loud
+        </label>
+      </div>
 
-  <!-- NEW: TTS toggle -->
-  <div class="note" style="margin-top: 8px;">
-    <label>
-      <input type="checkbox" id="tts" checked />
-      Speak the answer out loud
-    </label>
+      <div class="status">
+        Mode: <span class="pill" id="modePill">Idle</span>
+      </div>
+    </div>
+
+    <div id="result"></div>
+
+    <div class="note">
+      Tip: Works best in Chrome or Edge. You will be asked for microphone permission.
+    </div>
   </div>
-
-  <div id="result"></div>
-
-  <div class="note">
-    Tip: Works best in Chrome or Edge browser.
-  </div>
-</div>
 
 <script>
+/** =========================
+ *  CONFIG
+ *  ========================= */
 const API = "https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app/faq/answer";
 
-/* NEW: Text-to-Speech */
-function speak(text) {
-  const enabled = document.getElementById("tts")?.checked ?? true;
+const GREETING = "Hello! Welcome to Sunshine Hotel Singapore. How can I help you today?";
+const GOODBYE  = "Thank you. Bye!";
 
-  if (!enabled) return;
-  if (!("speechSynthesis" in window)) {
-    console.warn("Text-to-Speech not supported in this browser.");
+/** =========================
+ *  STATE
+ *  ========================= */
+let convoActive = false;
+let recognition = null;
+let isListening = false;
+let isSpeaking = false;
+let lastAnswer = "";
+let pendingRestart = false;
+
+/** =========================
+ *  UI helpers
+ *  ========================= */
+function setMode(text) {
+  document.getElementById("modePill").textContent = text;
+}
+function setResult(html) {
+  document.getElementById("result").innerHTML = html;
+}
+function setStartStopUI() {
+  const btn = document.getElementById("startStopBtn");
+  if (convoActive) {
+    btn.textContent = "■ Stop";
+    btn.style.background = "#c53030";
+  } else {
+    btn.textContent = "▶ Start";
+    btn.style.background = "#e53e3e";
+  }
+}
+
+/** =========================
+ *  TTS (Speech Synthesis)
+ *  - supports barge-in by cancelling speech
+ *  ========================= */
+function ttsEnabled() {
+  return document.getElementById("tts")?.checked ?? true;
+}
+
+function stopSpeaking() {
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+  isSpeaking = false;
+}
+
+function speak(text) {
+  if (!ttsEnabled()) return Promise.resolve();
+  if (!("speechSynthesis" in window)) return Promise.resolve();
+
+  stopSpeaking();
+
+  return new Promise((resolve) => {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = "en-US";
+    utter.rate = 1.0;
+    utter.pitch = 1.0;
+
+    isSpeaking = true;
+
+    utter.onend = () => {
+      isSpeaking = false;
+      resolve();
+    };
+    utter.onerror = () => {
+      isSpeaking = false;
+      resolve();
+    };
+
+    window.speechSynthesis.speak(utter);
+  });
+}
+
+/** =========================
+ *  STT (Speech Recognition)
+ *  Turn-taking loop
+ *  ========================= */
+function ensureRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return null;
+
+  if (recognition) return recognition;
+
+  recognition = new SR();
+  recognition.lang = "en-US";
+  recognition.continuous = false;     // turn-taking
+  recognition.interimResults = false;
+
+  recognition.onstart = () => {
+    isListening = true;
+    setMode("Listening");
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+
+    // If conversation is still active and we ended unexpectedly, restart.
+    if (convoActive && pendingRestart) {
+      pendingRestart = false;
+      safeStartListening();
+      return;
+    }
+
+    if (convoActive && !isSpeaking) {
+      // normal end after recognition captured speech; do nothing here
+      // (askFromVoice triggers next actions)
+      setMode("Processing");
+    } else if (!convoActive) {
+      setMode("Idle");
+    }
+  };
+
+  recognition.onerror = (e) => {
+    isListening = false;
+    // Some errors happen if user denies mic etc.
+    setMode("Mic error");
+    setResult(`<b>Microphone error:</b> ${e?.error ?? "unknown"}`);
+    // stop the convo
+    convoActive = false;
+    setStartStopUI();
+  };
+
+  recognition.onresult = (event) => {
+    const transcript = event.results?.[0]?.[0]?.transcript?.trim() ?? "";
+    if (!transcript) {
+      // try again
+      if (convoActive) {
+        pendingRestart = true;
+      }
+      return;
+    }
+
+    document.getElementById("question").value = transcript;
+
+    // If the user says bye/goodbye, end politely
+    if (looksLikeGoodbye(transcript)) {
+      endConversation(true);
+      return;
+    }
+
+    askFromVoice(transcript);
+  };
+
+  return recognition;
+}
+
+function safeStartListening() {
+  if (!convoActive) return;
+
+  const rec = ensureRecognition();
+  if (!rec) {
+    alert("Voice not supported. Please use Chrome or Edge.");
+    convoActive = false;
+    setStartStopUI();
     return;
   }
 
-  // Stop any previous speech
-  window.speechSynthesis.cancel();
+  // Barge-in: if user starts speaking, stop AI voice immediately
+  stopSpeaking();
 
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = "en-US";
-  utter.rate = 1.0;
-  utter.pitch = 1.0;
-
-  window.speechSynthesis.speak(utter);
+  try {
+    pendingRestart = false;
+    rec.start();
+  } catch (e) {
+    // Sometimes start() throws if called too quickly
+    pendingRestart = true;
+    setTimeout(() => {
+      if (convoActive) safeStartListening();
+    }, 350);
+  }
 }
 
-async function ask() {
-  const q = document.getElementById("question").value;
-  if (!q) return;
-
-  document.getElementById("result").innerHTML = "Thinking...";
-
-  // NEW: helps “unlock” audio in some browsers
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-
+/** =========================
+ *  Backend call
+ *  ========================= */
+async function callBackend(question) {
   const response = await fetch(API, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      query: q,
-      top_k: 5,
-      min_score: 0.35
-    })
+    body: JSON.stringify({ query: question, top_k: 5, min_score: 0.35 })
   });
 
-  const data = await response.json();
-
-  document.getElementById("result").innerHTML =
-    "<b>Answer:</b> " + (data.answer ?? "(no answer)");
-
-  // NEW: speak answer
-  if (data?.answer) speak(data.answer);
-}
-
-function startVoice() {
-  const SpeechRecognition =
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  if (!SpeechRecognition) {
-    alert("Voice not supported. Please use Chrome or Edge.");
-    return;
+  if (!response.ok) {
+    const txt = await response.text().catch(() => "");
+    throw new Error(`Backend error ${response.status}: ${txt}`);
   }
 
-  const recognition = new SpeechRecognition();
-  recognition.lang = "en-US";
-  recognition.start();
-
-  document.getElementById("result").innerHTML = "🎤 Listening...";
-
-  recognition.onresult = function(event) {
-    const transcript = event.results[0][0].transcript;
-    document.getElementById("question").value = transcript;
-    ask();
-  };
+  return response.json();
 }
+
+/** =========================
+ *  Conversation controls
+ *  ========================= */
+async function toggleConversation() {
+  if (convoActive) {
+    endConversation(false);
+  } else {
+    startConversation();
+  }
+}
+
+async function startConversation() {
+  convoActive = true;
+  setStartStopUI();
+
+  // IMPORTANT: this user click counts as a "gesture" that allows audio to play
+  setMode("Greeting");
+  setResult(`<b>AI:</b> ${GREETING}`);
+
+  await speak(GREETING);
+
+  // start listening for user
+  safeStartListening();
+}
+
+async function endConversation(fromVoiceTrigger) {
+  convoActive = false;
+  setStartStopUI();
+
+  // stop mic
+  try { recognition?.stop?.(); } catch (_) {}
+
+  // say goodbye (optional: only if called by voice trigger or by stop button)
+  setMode("Goodbye");
+  setResult(`<b>AI:</b> ${GOODBYE}`);
+  await speak(GOODBYE);
+
+  setMode("Idle");
+}
+
+function looksLikeGoodbye(text) {
+  const t = text.toLowerCase();
+  return (
+    t === "bye" ||
+    t.includes("goodbye") ||
+    t.includes("thank you bye") ||
+    (t.includes("thank you") && t.includes("bye")) ||
+    t.includes("bye bye")
+  );
+}
+
+/** =========================
+ *  Ask flows
+ *  ========================= */
+async function askFromText() {
+  const q = document.getElementById("question").value.trim();
+  if (!q) return;
+
+  // If user clicks Ask while AI is speaking, barge-in behavior:
+  stopSpeaking();
+
+  setMode("Processing");
+  setResult("Thinking...");
+
+  try {
+    const data = await callBackend(q);
+    const ans = data?.answer ?? "(no answer)";
+    lastAnswer = ans;
+
+    setResult(`<b>Answer:</b> ${escapeHtml(ans)}`);
+
+    setMode("Speaking");
+    await speak(ans);
+
+    // If conversation mode is active, go back to listening
+    if (convoActive) safeStartListening();
+    else setMode("Idle");
+
+  } catch (err) {
+    setMode("Error");
+    setResult(`<b>Error:</b> ${escapeHtml(String(err.message ?? err))}`);
+    if (convoActive) safeStartListening();
+  }
+}
+
+async function askFromVoice(transcript) {
+  // transcript already placed into input
+  setMode("Processing");
+  setResult("Thinking...");
+
+  try {
+    const data = await callBackend(transcript);
+    const ans = data?.answer ?? "(no answer)";
+    lastAnswer = ans;
+
+    setResult(`<b>Answer:</b> ${escapeHtml(ans)}`);
+
+    setMode("Speaking");
+    await speak(ans);
+
+    // turn-taking: after speaking, listen again
+    if (convoActive) safeStartListening();
+    else setMode("Idle");
+
+  } catch (err) {
+    setMode("Error");
+    setResult(`<b>Error:</b> ${escapeHtml(String(err.message ?? err))}`);
+    if (convoActive) safeStartListening();
+  }
+}
+
+/** =========================
+ *  Utility
+ *  ========================= */
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+// Optional: allow Enter key to Ask (text mode)
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") askFromText();
+});
 </script>
 
 </body>
 </html>
+
+
