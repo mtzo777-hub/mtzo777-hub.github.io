@@ -73,6 +73,14 @@
   <button onclick="ask()">Ask</button>
   <button class="mic" onclick="startVoice()">🎤 Speak</button>
 
+  <!-- NEW: TTS toggle -->
+  <div class="note" style="margin-top: 8px;">
+    <label>
+      <input type="checkbox" id="tts" checked />
+      Speak the answer out loud
+    </label>
+  </div>
+
   <div id="result"></div>
 
   <div class="note">
@@ -83,11 +91,35 @@
 <script>
 const API = "https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app/faq/answer";
 
+/* NEW: Text-to-Speech */
+function speak(text) {
+  const enabled = document.getElementById("tts")?.checked ?? true;
+
+  if (!enabled) return;
+  if (!("speechSynthesis" in window)) {
+    console.warn("Text-to-Speech not supported in this browser.");
+    return;
+  }
+
+  // Stop any previous speech
+  window.speechSynthesis.cancel();
+
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = "en-US";
+  utter.rate = 1.0;
+  utter.pitch = 1.0;
+
+  window.speechSynthesis.speak(utter);
+}
+
 async function ask() {
   const q = document.getElementById("question").value;
   if (!q) return;
 
   document.getElementById("result").innerHTML = "Thinking...";
+
+  // NEW: helps “unlock” audio in some browsers
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 
   const response = await fetch(API, {
     method: "POST",
@@ -100,8 +132,12 @@ async function ask() {
   });
 
   const data = await response.json();
+
   document.getElementById("result").innerHTML =
-    "<b>Answer:</b> " + data.answer;
+    "<b>Answer:</b> " + (data.answer ?? "(no answer)");
+
+  // NEW: speak answer
+  if (data?.answer) speak(data.answer);
 }
 
 function startVoice() {
@@ -129,4 +165,3 @@ function startVoice() {
 
 </body>
 </html>
-
