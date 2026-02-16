@@ -12,32 +12,23 @@
       padding: 40px;
     }
 
-    h1 { color: #2b6cb0; margin-bottom: 6px; }
-    .sub { color:#5a6778; margin-top:0; }
+    h1 { color: #2b6cb0; }
 
     .card {
       background: white;
       padding: 25px;
-      max-width: 720px;
+      max-width: 650px;
       margin: auto;
       border-radius: 12px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-      text-align: left;
-    }
-
-    .row {
-      display: flex;
-      gap: 10px;
-      margin-top: 10px;
     }
 
     input {
-      flex: 1;
+      width: 70%;
       padding: 12px;
       font-size: 16px;
       border-radius: 8px;
       border: 1px solid #ccc;
-      outline: none;
     }
 
     button {
@@ -48,165 +39,94 @@
       color: white;
       border-radius: 8px;
       cursor: pointer;
-      white-space: nowrap;
-    }
-    button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
+      margin: 8px;
     }
 
-    .result {
-      margin-top: 18px;
-      font-size: 16px;
-      color: #222;
+    .mic {
+      background: #e53e3e;
+    }
+
+    #result {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #333;
       min-height: 40px;
-      background: #f8fafc;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 14px;
     }
 
-    .muted { color:#6b7280; font-size: 13px; }
-    .ok { color:#0f766e; font-weight: 600; }
-    .bad { color:#b91c1c; font-weight: 600; }
-
-    .meta {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px dashed #d1d5db;
-      font-size: 13px;
-      color: #374151;
+    .note {
+      margin-top: 20px;
+      font-size: 14px;
+      color: #666;
     }
-
-    code {
-      background: #111827;
-      color: #f9fafb;
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
-
-    .footer {
-      margin-top: 14px;
-      font-size: 12px;
-      color: #6b7280;
-      line-height: 1.4;
-    }
-
-    a { color: #2b6cb0; text-decoration: none; }
-    a:hover { text-decoration: underline; }
   </style>
 </head>
 
 <body>
 
-  <div class="card">
-    <h1>Sunshine Hotel Voice Agent</h1>
-    <p class="sub">Frontend (GitHub Pages) → Backend (Cloud Run)</p>
+<div class="card">
+  <h1>🎤 Sunshine Hotel Voice Agent</h1>
+  <p>Type OR speak your hotel question</p>
 
-    <div class="row">
-      <input id="question" placeholder="When is check-in time?" />
-      <button id="askBtn" onclick="ask()">Ask</button>
-    </div>
+  <input id="question" placeholder="When is check-in time?" />
 
-    <div class="result" id="result">
-      <span class="muted">Type a question and click “Ask”.</span>
-    </div>
+  <br>
+  <button onclick="ask()">Ask</button>
+  <button class="mic" onclick="startVoice()">🎤 Speak</button>
 
-    <div class="footer">
-      Backend endpoint:
-      <a href="https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app/docs" target="_blank" rel="noreferrer">
-        Swagger Docs
-      </a>
-      ·
-      <a href="https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app/health" target="_blank" rel="noreferrer">
-        Health
-      </a>
-      <br/>
-      Tip: You can screenshot answers + scores here for your evaluation section.
-    </div>
+  <div id="result"></div>
+
+  <div class="note">
+    Tip: Works best in Chrome or Edge browser.
   </div>
+</div>
 
 <script>
-const API_BASE = "https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app";
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, (m) => ({
-    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-  }[m]));
-}
+const API = "https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app/faq/answer";
 
 async function ask() {
-  const input = document.getElementById("question");
-  const btn = document.getElementById("askBtn");
-  const result = document.getElementById("result");
+  const q = document.getElementById("question").value;
+  if (!q) return;
 
-  const q = (input.value || "").trim();
-  if (!q) {
-    result.innerHTML = `<span class="bad">Please type a question.</span>`;
-    input.focus();
+  document.getElementById("result").innerHTML = "Thinking...";
+
+  const response = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      query: q,
+      top_k: 5,
+      min_score: 0.35
+    })
+  });
+
+  const data = await response.json();
+  document.getElementById("result").innerHTML =
+    "<b>Answer:</b> " + data.answer;
+}
+
+function startVoice() {
+  const SpeechRecognition =
+    window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    alert("Voice not supported. Please use Chrome or Edge.");
     return;
   }
 
-  btn.disabled = true;
-  result.innerHTML = `<span class="muted">Thinking...</span>`;
+  const recognition = new SpeechRecognition();
+  recognition.lang = "en-US";
+  recognition.start();
 
-  try {
-    const response = await fetch(`${API_BASE}/faq/answer`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: q, top_k: 5, min_score: 0.35 })
-    });
+  document.getElementById("result").innerHTML = "🎤 Listening...";
 
-    // If backend returns non-200
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`HTTP ${response.status}: ${text.slice(0, 200)}`);
-    }
-
-    const data = await response.json();
-
-    const answer = escapeHtml(data.answer ?? "");
-    const matched = !!data.matched;
-    const bestScore = (typeof data.best_score === "number") ? data.best_score.toFixed(3) : "n/a";
-    const requestId = escapeHtml(data.request_id ?? "n/a");
-
-    // top[0] is usually the best match
-    const top0 = (Array.isArray(data.top) && data.top.length > 0) ? data.top[0] : null;
-    const topId = top0?.id ? escapeHtml(top0.id) : "n/a";
-    const topScore = (typeof top0?.score === "number") ? top0.score.toFixed(3) : "n/a";
-
-    result.innerHTML = `
-      <div><b>Answer:</b> ${answer || "<span class='muted'>(empty)</span>"}</div>
-      <div class="meta">
-        <div><b>Status:</b> ${matched ? "<span class='ok'>Matched</span>" : "<span class='bad'>Not matched</span>"}</div>
-        <div><b>Best score:</b> <code>${bestScore}</code> · <b>Top id:</b> <code>${topId}</code> · <b>Top score:</b> <code>${topScore}</code></div>
-        <div class="muted"><b>Request ID:</b> ${requestId}</div>
-      </div>
-    `;
-  } catch (err) {
-    result.innerHTML = `
-      <div class="bad">Error calling backend.</div>
-      <div class="muted" style="margin-top:6px;">${escapeHtml(err.message || String(err))}</div>
-      <div class="muted" style="margin-top:6px;">
-        Check:
-        <a href="${API_BASE}/health" target="_blank" rel="noreferrer">/health</a>
-        and
-        <a href="${API_BASE}/docs" target="_blank" rel="noreferrer">/docs</a>
-      </div>
-    `;
-  } finally {
-    btn.disabled = false;
-  }
+  recognition.onresult = function(event) {
+    const transcript = event.results[0][0].transcript;
+    document.getElementById("question").value = transcript;
+    ask();
+  };
 }
-
-// Press Enter to ask
-document.getElementById("question").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") ask();
-});
 </script>
 
 </body>
 </html>
-
 
