@@ -127,7 +127,6 @@ let recognition = null;
 let isListening = false;
 let isSpeaking = false;
 
-// debounce so we don’t fire multiple requests quickly
 let lastFinalAt = 0;
 const FINAL_COOLDOWN_MS = 500;
 
@@ -148,7 +147,7 @@ function setStartStopUI() {
 }
 
 /** =========================
- *  TTS (Speech Synthesis)
+ *  TTS
  *  ========================= */
 function ttsEnabled() {
   return document.getElementById("tts")?.checked ?? true;
@@ -165,7 +164,7 @@ function speak(text) {
 
   stopSpeaking();
 
-  return new Promise((resolve understand, reject) => {
+  return new Promise((resolve) => {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = "en-US";
     utter.rate = 1.0;
@@ -199,7 +198,7 @@ async function callBackend(question) {
 }
 
 /** =========================
- *  STT (Speech Recognition) with BARGE-IN
+ *  STT with BARGE-IN
  *  ========================= */
 function ensureRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -208,8 +207,6 @@ function ensureRecognition() {
 
   recognition = new SR();
   recognition.lang = "en-US";
-
-  // KEY CHANGE: keep mic running so user can interrupt at any time
   recognition.continuous = true;
   recognition.interimResults = true;
 
@@ -218,18 +215,15 @@ function ensureRecognition() {
     setMode(isSpeaking ? "Speaking (barge-in ready)" : "Listening");
   };
 
-  // BEST hook for barge-in: when browser detects user speech
   recognition.onspeechstart = () => {
     if (convoActive && isSpeaking) {
-      stopSpeaking();                 // <- STOPS AI IMMEDIATELY
+      stopSpeaking();   // stop AI immediately
       setMode("Barge-in detected");
     }
   };
 
   recognition.onend = () => {
     isListening = false;
-
-    // Chrome sometimes ends recognition randomly; restart while active
     if (convoActive) {
       setMode("Restarting mic…");
       setTimeout(() => {
@@ -250,31 +244,25 @@ function ensureRecognition() {
   recognition.onresult = (event) => {
     if (!convoActive) return;
 
-    // Build text from final results only
     let finalText = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const res = event.results[i];
       if (res.isFinal) finalText += (res[0]?.transcript ?? "") + " ";
     }
-
     finalText = finalText.trim();
     if (!finalText) return;
 
-    // cooldown to prevent double triggers
     const now = Date.now();
     if (now - lastFinalAt < FINAL_COOLDOWN_MS) return;
     lastFinalAt = now;
 
     document.getElementById("question").value = finalText;
 
-    // if user says bye, end chat
     if (looksLikeGoodbye(finalText)) {
       endConversation(true);
       return;
     }
 
-    // If AI was speaking and user barged in, we already cancelled in onspeechstart.
-    // Now answer the new question.
     askFromVoice(finalText);
   };
 
@@ -307,21 +295,18 @@ async function startConversation() {
   convoActive = true;
   setStartStopUI();
 
-  // user gesture (click) allows audio
   setMode("Greeting");
   setResult(`<b>AI:</b> ${escapeHtml(GREETING)}`);
   await speak(GREETING);
 
-  // Start continuous listening (barge-in ready)
   setMode("Listening");
   startListening();
 }
 
-async function endConversation(fromVoiceTrigger) {
+async function endConversation() {
   convoActive = false;
   setStartStopUI();
 
-  // stop mic
   try { recognition?.stop?.(); } catch (_) {}
 
   setMode("Goodbye");
@@ -348,7 +333,6 @@ async function askFromText() {
   const q = document.getElementById("question").value.trim();
   if (!q) return;
 
-  // barge-in behavior for typed ask too
   stopSpeaking();
 
   setMode("Processing");
@@ -362,10 +346,8 @@ async function askFromText() {
     setMode("Speaking (barge-in ready)");
     await speak(ans);
 
-    // keep listening continuously (no restart needed)
     if (convoActive) setMode("Listening");
     else setMode("Idle");
-
   } catch (err) {
     setMode("Error");
     setResult(`<b>Error:</b> ${escapeHtml(String(err.message ?? err))}`);
@@ -387,7 +369,6 @@ async function askFromVoice(transcript) {
 
     if (convoActive) setMode("Listening");
     else setMode("Idle");
-
   } catch (err) {
     setMode("Error");
     setResult(`<b>Error:</b> ${escapeHtml(String(err.message ?? err))}`);
@@ -407,8 +388,8 @@ function escapeHtml(s) {
     .replaceAll("'", "&#039;");
 }
 
-// Enter key for text Ask
-document.addEventListener("keydown", (e) => understand) => {
+/** ✅ FIXED: Enter key handler */
+document.addEventListener("keydown", (e) => {
   if (e.key === "Enter") askFromText();
 });
 </script>
@@ -416,7 +397,10 @@ document.addEventListener("keydown", (e) => understand) => {
 </body>
 </html>
 
-  
+
+
+
+
 
 
   
