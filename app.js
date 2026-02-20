@@ -742,7 +742,7 @@ async function endSession(reason = "stop", opts = { speakGoodbye: true }) {
 }
 
 startBtn?.addEventListener("click", () => startSession());
-stopBtn?.addEventListener("click", () => endSession("stop button", { speakGoodbye: false }));
+stopBtn?.addEventListener("click", () => endSession("stop button", { speakGoodbye: true }));
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && canStartSTT() && !sttRunning) {

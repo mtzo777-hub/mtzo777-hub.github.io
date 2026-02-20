@@ -4,52 +4,163 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Sunshine Hotel — AI Voice Agent (Prototype)</title>
+    <title>Sunshine Hotel Voice Agent</title>
+
     <style>
+        :root {
+            --bg: #f6f8fb;
+            --card: #ffffff;
+            --text: #0f172a;
+            --muted: #64748b;
+            --border: #e2e8f0;
+
+            --blue: #1d4ed8;
+            --blueHover: #1e40af;
+
+            --red: #dc2626;
+            --redHover: #b91c1c;
+
+            --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+            --radius: 16px;
+        }
+
         body {
+            margin: 0;
+            background: var(--bg);
             font-family: Arial, Helvetica, sans-serif;
-            margin: 18px;
+            color: var(--text);
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 42px auto;
+            padding: 0 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
+            border-radius: var(--radius);
+            padding: 28px 28px 22px;
+        }
+
+        .titleRow {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+
+        .icon {
+            font-size: 28px;
+            transform: translateY(-1px);
         }
 
         h1 {
-            margin: 0 0 14px;
-            font-size: 42px;
+            font-size: 34px;
+            margin: 0;
+            color: var(--blue);
+            letter-spacing: 0.2px;
         }
 
-        .row {
+        .subtitle {
+            margin: 8px 0 18px;
+            color: var(--muted);
+            font-size: 15px;
+            text-align: center;
+        }
+
+        .inputRow {
             display: flex;
-            gap: 10px;
+            gap: 12px;
             align-items: center;
+            justify-content: center;
             flex-wrap: wrap;
+            margin-top: 10px;
         }
 
-        button {
-            padding: 10px 16px;
+        .inputBox {
+            width: min(640px, 92vw);
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
             font-size: 16px;
+            outline: none;
+        }
+
+        .inputBox:focus {
+            border-color: rgba(29, 78, 216, 0.55);
+            box-shadow: 0 0 0 4px rgba(29, 78, 216, 0.12);
+        }
+
+        .btn {
+            border: none;
+            border-radius: 10px;
+            padding: 11px 18px;
+            font-size: 16px;
+            cursor: pointer;
+            color: white;
+            min-width: 96px;
+        }
+
+        .btnBlue {
+            background: var(--blue);
+        }
+
+        .btnBlue:hover {
+            background: var(--blueHover);
+        }
+
+        .btnRed {
+            background: var(--red);
+        }
+
+        .btnRed:hover {
+            background: var(--redHover);
+        }
+
+        .row2 {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .modeRow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
         #statusPill {
             display: inline-block;
-            padding: 4px 10px;
-            border: 1px solid #444;
+            padding: 3px 10px;
+            border: 1px solid #cbd5e1;
             border-radius: 999px;
-            margin-left: 8px;
             user-select: none;
+            font-size: 13px;
+            color: #0f172a;
+            background: #f8fafc;
         }
 
-        /* ---------- Voice UX polishing ---------- */
+        /* Voice states (matches app.js setVoiceState) */
         .pill-idle {
-            opacity: 0.8;
+            opacity: 0.85;
         }
 
         .pill-listening {
-            border-color: #b30000;
+            border-color: var(--red);
             font-weight: 700;
             animation: pulse 1s infinite;
         }
 
         .pill-thinking {
-            border-color: #1d4ed8;
+            border-color: var(--blue);
             font-weight: 700;
             animation: pulse 1.2s infinite;
         }
@@ -75,37 +186,92 @@
         }
 
         #statusText {
-            margin: 8px 0 0;
-            font-size: 14px;
-            color: #333;
+            margin: 10px 0 0;
+            font-size: 13px;
+            color: var(--muted);
+            text-align: center;
         }
 
         #liveTranscript {
             margin: 10px 0 0;
-            font-size: 14px;
-            color: #333;
-            padding: 8px 10px;
-            border: 1px dashed #999;
-            border-radius: 8px;
-            background: #fafafa;
+            font-size: 13px;
+            color: #334155;
+            padding: 10px 12px;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            background: #ffffff;
             min-height: 18px;
         }
 
-        #transcriptBox {
+        .answerBox {
+            margin-top: 18px;
+            padding: 14px 14px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #fbfdff;
+            min-height: 48px;
+        }
+
+        .answerLabel {
+            font-weight: 700;
+            color: #0f172a;
+            margin-right: 6px;
+        }
+
+        #answerText {
+            font-size: 18px;
+            color: #0f172a;
+            line-height: 1.35;
+        }
+
+        .tip {
             margin-top: 14px;
+            color: var(--muted);
+            font-size: 13px;
+            text-align: center;
+        }
+
+        .tip b {
+            color: #334155;
+        }
+
+        /* --- REQUIREMENT #1: Start and Stop share the SAME button position --- */
+        .startStopSlot {
+            position: relative;
+            width: 110px;
+            /* keeps the same slot size */
+            height: 44px;
+        }
+
+        .startStopSlot .btn {
+            position: absolute;
+            inset: 0;
             width: 100%;
-            height: 220px;
-            border: 2px solid #333;
-            padding: 10px;
-            overflow: auto;
-            white-space: pre-wrap;
-            background: #fff;
+            height: 100%;
+            min-width: 0;
+            display: none;
+            /* we will toggle via JS */
+        }
+
+        /* Advanced panel */
+        details {
+            margin-top: 18px;
+            border-top: 1px solid var(--border);
+            padding-top: 14px;
+        }
+
+        summary {
+            cursor: pointer;
+            color: #334155;
+            font-weight: 700;
         }
 
         .panel {
-            margin-top: 14px;
-            border: 1px solid #999;
-            padding: 10px;
+            margin-top: 12px;
+            border: 1px solid var(--border);
+            padding: 12px;
+            border-radius: 12px;
+            background: #ffffff;
         }
 
         .grid {
@@ -115,87 +281,210 @@
             align-items: center;
         }
 
-        input[type="text"],
-        input[type="number"] {
-            width: 100%;
-            padding: 8px;
-        }
-
-        .small {
-            color: #444;
-        }
-
-        .muted {
-            color: #666;
+        label {
+            color: #334155;
             font-size: 13px;
         }
 
-        #debugRow {
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            outline: none;
+        }
+
+        #transcriptBox {
             margin-top: 10px;
+            width: 100%;
+            height: 220px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 10px;
+            overflow: auto;
+            white-space: pre-wrap;
+            background: #fff;
+            font-family: Consolas, monospace;
+            font-size: 12px;
+            color: #0f172a;
+        }
+
+        .miniRow {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .miniBtn {
+            border-radius: 10px;
+            padding: 9px 14px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            background: #ffffff;
+        }
+
+        .miniBtn:hover {
+            background: #f8fafc;
         }
     </style>
 </head>
 
 <body>
-    <h1>Sunshine Hotel — AI Voice Agent (Prototype)</h1>
+    <div class="wrap">
+        <div class="card">
+            <div class="titleRow">
+                <div class="icon">🎤</div>
+                <h1>Sunshine Hotel Voice Agent</h1>
+            </div>
 
-    <div class="row">
-        <button id="startBtn">Start</button>
-        <button id="stopBtn" disabled>Stop</button>
-        <div style="font-size:20px;">
-            <b>Mode:</b> <span id="statusEl">Idle</span>
-            <span id="statusPill" class="pill-idle">idle</span>
-        </div>
-    </div>
+            <div class="subtitle">Type OR speak your hotel question</div>
 
-    <!-- New: friendly status sentence -->
-    <p id="statusText">🎤 Tap Start to speak</p>
+            <!-- REQUIREMENT #2: Ask button is used after user types text in the box -->
+            <!-- We keep debugInput + sendBtn ids so your current app.js works without edits -->
+            <div class="inputRow">
+                <input id="debugInput" class="inputBox" type="text" placeholder="When is check-in time?" />
 
-    <!-- New: show what the user said (great for demos) -->
-    <div id="liveTranscript"></div>
+                <button id="sendBtn" class="btn btnBlue">Ask</button>
 
-    <p class="small">
-        Speak a question (e.g., “What time is check-in?”). The agent answers using FAQ retrieval.
-        <span class="muted">Tip: Use Chrome/Edge. Microphone permission must be set to Allow.</span>
-    </p>
+                <!-- REQUIREMENT #1: Start/Stop share the SAME position -->
+                <div class="startStopSlot">
+                    <button id="startBtn" class="btn btnRed">▶ Start</button>
+                    <button id="stopBtn" class="btn btnRed" disabled>■ Stop</button>
+                </div>
+            </div>
 
-    <div id="debugRow" class="row">
-        <input id="debugInput" type="text" placeholder="Type a question here (debug fallback)..." />
-        <button id="sendBtn">Send</button>
-        <button id="clearBtn">Clear</button>
-    </div>
+            <div class="row2">
+                <label style="display:flex; align-items:center; gap:8px;">
+                    <input id="useTts" type="checkbox" checked />
+                    Speak the answer out loud
+                </label>
 
-    <h2>Transcript / Debug</h2>
-    <div id="transcriptBox"></div>
+                <!-- Keep useMic for app.js -->
+                <input id="useMic" type="checkbox" checked style="display:none" />
 
-    <div class="panel">
-        <div class="grid">
-            <label for="backendUrl">Backend URL</label>
-            <input id="backendUrl" type="text"
-                value="https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app" />
+                <div class="modeRow">
+                    <span style="color:#334155;"><b>Mode:</b></span>
+                    <span id="statusEl">Idle</span>
+                    <span id="statusPill" class="pill-idle">idle</span>
+                </div>
+            </div>
 
-            <label for="faqPath">FAQ Endpoint Path</label>
-            <input id="faqPath" type="text" value="/faq/answer" />
+            <p id="statusText">🎤 Tap Start to speak</p>
 
-            <label for="topK">top_k</label>
-            <input id="topK" type="number" value="5" min="1" max="10" />
+            <div id="liveTranscript"></div>
 
-            <label for="minScore">min_score (optional)</label>
-            <input id="minScore" type="text" value="0.35" />
-        </div>
+            <div class="answerBox">
+                <span class="answerLabel">AI:</span>
+                <span id="answerText">—</span>
+            </div>
 
-        <div class="row" style="margin-top:10px;">
-            <label><input id="useMic" type="checkbox" checked /> Use microphone (STT)</label>
-            <label><input id="useTts" type="checkbox" checked /> Speak answer (TTS)</label>
+            <div class="tip">
+                Tip: Works best in <b>Chrome</b> or <b>Edge</b>. You will be asked for microphone permission.
+            </div>
 
-            <label for="voiceSelect" style="margin-left:10px;">TTS Voice (optional)</label>
-            <select id="voiceSelect">
-                <option value="">Default</option>
-            </select>
+            <!-- Advanced / Troubleshooting (hidden by default) -->
+            <details>
+                <summary>Advanced (Troubleshooting)</summary>
+
+                <div class="panel">
+                    <div class="grid">
+                        <label for="backendUrl">Backend URL</label>
+                        <input id="backendUrl" type="text"
+                            value="https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app" />
+
+                        <label for="faqPath">FAQ Endpoint Path</label>
+                        <input id="faqPath" type="text" value="/faq/answer" />
+
+                        <label for="topK">top_k</label>
+                        <input id="topK" type="number" value="5" min="1" max="10" />
+
+                        <label for="minScore">min_score (optional)</label>
+                        <input id="minScore" type="text" value="0.35" />
+                    </div>
+
+                    <div class="miniRow">
+                        <label for="voiceSelect">TTS Voice (optional)</label>
+                        <select id="voiceSelect"
+                            style="padding:8px 10px; border:1px solid var(--border); border-radius:10px;">
+                            <option value="">Default</option>
+                        </select>
+
+                        <button id="clearBtn" class="miniBtn">Clear logs</button>
+                    </div>
+
+                    <div id="transcriptBox"></div>
+                </div>
+            </details>
         </div>
     </div>
 
     <script src="./app.js"></script>
+
+    <!-- Mirror latest AI line from transcriptBox into the clean Answer area -->
+    <script>
+        (function () {
+            const transcriptBox = document.getElementById("transcriptBox");
+            const answerText = document.getElementById("answerText");
+
+            function updateAnswerFromLogs() {
+                if (!transcriptBox || !answerText) return;
+                const text = transcriptBox.textContent || "";
+                const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const line = lines[i];
+                    const idx = line.indexOf("AI:");
+                    if (idx !== -1) {
+                        const msg = line.slice(idx + 3).trim();
+                        if (msg) {
+                            answerText.textContent = msg;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            if (transcriptBox && window.MutationObserver) {
+                const obs = new MutationObserver(updateAnswerFromLogs);
+                obs.observe(transcriptBox, { childList: true, subtree: true, characterData: true });
+            }
+
+            updateAnswerFromLogs();
+        })();
+    </script>
+
+    <!-- IMPORTANT: Toggle Start/Stop in the SAME slot (requirement #1) -->
+    <script>
+        (function () {
+            const startBtn = document.getElementById("startBtn");
+            const stopBtn = document.getElementById("stopBtn");
+
+            if (!startBtn || !stopBtn) return;
+
+            function sync() {
+                // In your app.js: startSession() disables startBtn and enables stopBtn.
+                // endSession() enables startBtn and disables stopBtn.
+                const shouldShowStop = !stopBtn.disabled;
+                stopBtn.style.display = shouldShowStop ? "block" : "none";
+                startBtn.style.display = shouldShowStop ? "none" : "block";
+            }
+
+            // Initial
+            sync();
+
+            // Watch for disabled changes
+            const obs = new MutationObserver(sync);
+            obs.observe(startBtn, { attributes: true, attributeFilter: ["disabled"] });
+            obs.observe(stopBtn, { attributes: true, attributeFilter: ["disabled"] });
+
+            // Also resync after clicks (in case browser batches updates)
+            startBtn.addEventListener("click", () => setTimeout(sync, 50));
+            stopBtn.addEventListener("click", () => setTimeout(sync, 50));
+        })();
+    </script>
 </body>
 
 </html>
