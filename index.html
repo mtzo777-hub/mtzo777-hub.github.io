@@ -1,406 +1,201 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Sunshine Hotel Voice Agent</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+<!doctype html>
+<html lang="en">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f7fb;
-      text-align: center;
-      padding: 40px;
-    }
-    h1 { color: #2b6cb0; }
-    .card {
-      background: white;
-      padding: 25px;
-      max-width: 650px;
-      margin: auto;
-      border-radius: 12px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-      text-align: left;
-    }
-    .top { text-align: center; }
-    input {
-      width: 70%;
-      padding: 12px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-    }
-    button {
-      padding: 12px 18px;
-      font-size: 16px;
-      border: none;
-      background: #2b6cb0;
-      color: white;
-      border-radius: 8px;
-      cursor: pointer;
-      margin: 8px;
-    }
-    .mic { background: #e53e3e; }
-    #result {
-      margin-top: 16px;
-      font-size: 18px;
-      color: #333;
-      min-height: 40px;
-      line-height: 1.35;
-    }
-    .note {
-      margin-top: 14px;
-      font-size: 14px;
-      color: #666;
-      text-align: center;
-    }
-    .row {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .status {
-      font-size: 13px;
-      color: #666;
-      text-align: center;
-      margin-top: 10px;
-    }
-    .pill {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #edf2f7;
-      color: #2d3748;
-      margin-left: 6px;
-      font-size: 12px;
-    }
-  </style>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sunshine Hotel — AI Voice Agent (Prototype)</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 18px;
+        }
+
+        h1 {
+            margin: 0 0 14px;
+            font-size: 42px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 16px;
+            font-size: 16px;
+        }
+
+        #statusPill {
+            display: inline-block;
+            padding: 4px 10px;
+            border: 1px solid #444;
+            border-radius: 999px;
+            margin-left: 8px;
+            user-select: none;
+        }
+
+        /* ---------- Voice UX polishing ---------- */
+        .pill-idle {
+            opacity: 0.8;
+        }
+
+        .pill-listening {
+            border-color: #b30000;
+            font-weight: 700;
+            animation: pulse 1s infinite;
+        }
+
+        .pill-thinking {
+            border-color: #1d4ed8;
+            font-weight: 700;
+            animation: pulse 1.2s infinite;
+        }
+
+        .pill-speaking {
+            border-color: #15803d;
+            font-weight: 700;
+            animation: pulse 1.1s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.08);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        #statusText {
+            margin: 8px 0 0;
+            font-size: 14px;
+            color: #333;
+        }
+
+        #liveTranscript {
+            margin: 10px 0 0;
+            font-size: 14px;
+            color: #333;
+            padding: 8px 10px;
+            border: 1px dashed #999;
+            border-radius: 8px;
+            background: #fafafa;
+            min-height: 18px;
+        }
+
+        #transcriptBox {
+            margin-top: 14px;
+            width: 100%;
+            height: 220px;
+            border: 2px solid #333;
+            padding: 10px;
+            overflow: auto;
+            white-space: pre-wrap;
+            background: #fff;
+        }
+
+        .panel {
+            margin-top: 14px;
+            border: 1px solid #999;
+            padding: 10px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 180px 1fr 180px 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 100%;
+            padding: 8px;
+        }
+
+        .small {
+            color: #444;
+        }
+
+        .muted {
+            color: #666;
+            font-size: 13px;
+        }
+
+        #debugRow {
+            margin-top: 10px;
+        }
+    </style>
 </head>
 
 <body>
-  <div class="card">
-    <div class="top">
-      <h1>🎤 Sunshine Hotel Voice Agent</h1>
-      <p>Type OR speak your hotel question</p>
+    <h1>Sunshine Hotel — AI Voice Agent (Prototype)</h1>
 
-      <input id="question" placeholder="When is check-in time?" />
-
-      <div class="row">
-        <button onclick="askFromText()">Ask</button>
-        <button id="startStopBtn" class="mic" onclick="toggleConversation()">▶ Start</button>
-      </div>
-
-      <div class="note" style="margin-top: 8px;">
-        <label>
-          <input type="checkbox" id="tts" checked />
-          Speak the answer out loud
-        </label>
-      </div>
-
-      <div class="status">
-        Mode: <span class="pill" id="modePill">Idle</span>
-      </div>
+    <div class="row">
+        <button id="startBtn">Start</button>
+        <button id="stopBtn" disabled>Stop</button>
+        <div style="font-size:20px;">
+            <b>Mode:</b> <span id="statusEl">Idle</span>
+            <span id="statusPill" class="pill-idle">idle</span>
+        </div>
     </div>
 
-    <div id="result"></div>
+    <!-- New: friendly status sentence -->
+    <p id="statusText">🎤 Tap Start to speak</p>
 
-    <div class="note">
-      Tip: Works best in Chrome or Edge. You will be asked for microphone permission.
+    <!-- New: show what the user said (great for demos) -->
+    <div id="liveTranscript"></div>
+
+    <p class="small">
+        Speak a question (e.g., “What time is check-in?”). The agent answers using FAQ retrieval.
+        <span class="muted">Tip: Use Chrome/Edge. Microphone permission must be set to Allow.</span>
+    </p>
+
+    <div id="debugRow" class="row">
+        <input id="debugInput" type="text" placeholder="Type a question here (debug fallback)..." />
+        <button id="sendBtn">Send</button>
+        <button id="clearBtn">Clear</button>
     </div>
-  </div>
 
-<script>
-/** =========================
- *  CONFIG
- *  ========================= */
-const API = "https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app/faq/answer";
-const GREETING = "Hello! Welcome to Sunshine Hotel Singapore. How can I help you today?";
-const GOODBYE  = "Thank you. Bye!";
+    <h2>Transcript / Debug</h2>
+    <div id="transcriptBox"></div>
 
-/** =========================
- *  STATE
- *  ========================= */
-let convoActive = false;
-let recognition = null;
-let isListening = false;
-let isSpeaking = false;
+    <div class="panel">
+        <div class="grid">
+            <label for="backendUrl">Backend URL</label>
+            <input id="backendUrl" type="text"
+                value="https://hotel-voice-agent-backend-575069296077.asia-southeast1.run.app" />
 
-let lastFinalAt = 0;
-const FINAL_COOLDOWN_MS = 500;
+            <label for="faqPath">FAQ Endpoint Path</label>
+            <input id="faqPath" type="text" value="/faq/answer" />
 
-/** =========================
- *  UI helpers
- *  ========================= */
-function setMode(text) { document.getElementById("modePill").textContent = text; }
-function setResult(html) { document.getElementById("result").innerHTML = html; }
-function setStartStopUI() {
-  const btn = document.getElementById("startStopBtn");
-  if (convoActive) {
-    btn.textContent = "■ Stop";
-    btn.style.background = "#c53030";
-  } else {
-    btn.textContent = "▶ Start";
-    btn.style.background = "#e53e3e";
-  }
-}
+            <label for="topK">top_k</label>
+            <input id="topK" type="number" value="5" min="1" max="10" />
 
-/** =========================
- *  TTS
- *  ========================= */
-function ttsEnabled() {
-  return document.getElementById("tts")?.checked ?? true;
-}
+            <label for="minScore">min_score (optional)</label>
+            <input id="minScore" type="text" value="0.35" />
+        </div>
 
-function stopSpeaking() {
-  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-  isSpeaking = false;
-}
+        <div class="row" style="margin-top:10px;">
+            <label><input id="useMic" type="checkbox" checked /> Use microphone (STT)</label>
+            <label><input id="useTts" type="checkbox" checked /> Speak answer (TTS)</label>
 
-function speak(text) {
-  if (!ttsEnabled()) return Promise.resolve();
-  if (!("speechSynthesis" in window)) return Promise.resolve();
+            <label for="voiceSelect" style="margin-left:10px;">TTS Voice (optional)</label>
+            <select id="voiceSelect">
+                <option value="">Default</option>
+            </select>
+        </div>
+    </div>
 
-  stopSpeaking();
-
-  return new Promise((resolve) => {
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "en-US";
-    utter.rate = 1.0;
-    utter.pitch = 1.0;
-
-    isSpeaking = true;
-
-    utter.onend = () => { isSpeaking = false; resolve(); };
-    utter.onerror = () => { isSpeaking = false; resolve(); };
-
-    window.speechSynthesis.speak(utter);
-  });
-}
-
-/** =========================
- *  Backend call
- *  ========================= */
-async function callBackend(question) {
-  const response = await fetch(API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query: question, top_k: 5, min_score: 0.35 })
-  });
-
-  if (!response.ok) {
-    const txt = await response.text().catch(() => "");
-    throw new Error(`Backend error ${response.status}: ${txt}`);
-  }
-
-  return response.json();
-}
-
-/** =========================
- *  STT with BARGE-IN
- *  ========================= */
-function ensureRecognition() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) return null;
-  if (recognition) return recognition;
-
-  recognition = new SR();
-  recognition.lang = "en-US";
-  recognition.continuous = true;
-  recognition.interimResults = true;
-
-  recognition.onstart = () => {
-    isListening = true;
-    setMode(isSpeaking ? "Speaking (barge-in ready)" : "Listening");
-  };
-
-  recognition.onspeechstart = () => {
-    if (convoActive && isSpeaking) {
-      stopSpeaking();   // stop AI immediately
-      setMode("Barge-in detected");
-    }
-  };
-
-  recognition.onend = () => {
-    isListening = false;
-    if (convoActive) {
-      setMode("Restarting mic…");
-      setTimeout(() => {
-        try { recognition.start(); } catch (_) {}
-      }, 250);
-    } else {
-      setMode("Idle");
-    }
-  };
-
-  recognition.onerror = (e) => {
-    setMode("Mic error");
-    setResult(`<b>Microphone error:</b> ${escapeHtml(e?.error ?? "unknown")}`);
-    convoActive = false;
-    setStartStopUI();
-  };
-
-  recognition.onresult = (event) => {
-    if (!convoActive) return;
-
-    let finalText = "";
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const res = event.results[i];
-      if (res.isFinal) finalText += (res[0]?.transcript ?? "") + " ";
-    }
-    finalText = finalText.trim();
-    if (!finalText) return;
-
-    const now = Date.now();
-    if (now - lastFinalAt < FINAL_COOLDOWN_MS) return;
-    lastFinalAt = now;
-
-    document.getElementById("question").value = finalText;
-
-    if (looksLikeGoodbye(finalText)) {
-      endConversation(true);
-      return;
-    }
-
-    askFromVoice(finalText);
-  };
-
-  return recognition;
-}
-
-function startListening() {
-  const rec = ensureRecognition();
-  if (!rec) {
-    alert("Voice not supported. Please use Chrome or Edge.");
-    convoActive = false;
-    setStartStopUI();
-    return;
-  }
-  try { rec.start(); } catch (_) {}
-}
-
-/** =========================
- *  Conversation controls
- *  ========================= */
-async function toggleConversation() {
-  if (convoActive) {
-    endConversation(false);
-  } else {
-    startConversation();
-  }
-}
-
-async function startConversation() {
-  convoActive = true;
-  setStartStopUI();
-
-  setMode("Greeting");
-  setResult(`<b>AI:</b> ${escapeHtml(GREETING)}`);
-  await speak(GREETING);
-
-  setMode("Listening");
-  startListening();
-}
-
-async function endConversation() {
-  convoActive = false;
-  setStartStopUI();
-
-  try { recognition?.stop?.(); } catch (_) {}
-
-  setMode("Goodbye");
-  setResult(`<b>AI:</b> ${escapeHtml(GOODBYE)}`);
-  await speak(GOODBYE);
-
-  setMode("Idle");
-}
-
-function looksLikeGoodbye(text) {
-  const t = text.toLowerCase();
-  return (
-    t === "bye" ||
-    t.includes("goodbye") ||
-    t.includes("bye bye") ||
-    (t.includes("thank you") && t.includes("bye"))
-  );
-}
-
-/** =========================
- *  Ask flows
- *  ========================= */
-async function askFromText() {
-  const q = document.getElementById("question").value.trim();
-  if (!q) return;
-
-  stopSpeaking();
-
-  setMode("Processing");
-  setResult("Thinking...");
-
-  try {
-    const data = await callBackend(q);
-    const ans = data?.answer ?? "(no answer)";
-    setResult(`<b>Answer:</b> ${escapeHtml(ans)}`);
-
-    setMode("Speaking (barge-in ready)");
-    await speak(ans);
-
-    if (convoActive) setMode("Listening");
-    else setMode("Idle");
-  } catch (err) {
-    setMode("Error");
-    setResult(`<b>Error:</b> ${escapeHtml(String(err.message ?? err))}`);
-    if (convoActive) setMode("Listening");
-  }
-}
-
-async function askFromVoice(transcript) {
-  setMode("Processing");
-  setResult("Thinking...");
-
-  try {
-    const data = await callBackend(transcript);
-    const ans = data?.answer ?? "(no answer)";
-    setResult(`<b>Answer:</b> ${escapeHtml(ans)}`);
-
-    setMode("Speaking (barge-in ready)");
-    await speak(ans);
-
-    if (convoActive) setMode("Listening");
-    else setMode("Idle");
-  } catch (err) {
-    setMode("Error");
-    setResult(`<b>Error:</b> ${escapeHtml(String(err.message ?? err))}`);
-    if (convoActive) setMode("Listening");
-  }
-}
-
-/** =========================
- *  Utility
- *  ========================= */
-function escapeHtml(s) {
-  return String(s)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-/** ✅ FIXED: Enter key handler */
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") askFromText();
-});
-</script>
-
+    <script src="./app.js"></script>
 </body>
+
 </html>
-
-
-
-
-
-
-
-  
